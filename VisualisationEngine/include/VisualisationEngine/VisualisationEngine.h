@@ -26,15 +26,12 @@ public:
         std::shared_ptr<VoxelBlockHash> vbh, RenderState* renderState,
         RGBDCalibrationParams* cameraParams, const Eigen::Matrix4f inv_m);
 
-
-
     void reset(int size) {
         allocateRequests_.reserve(size);
         visibleEntryIds_.reserve(size);
     }
 
 private:
-
     // 根据深度图像分配内存
     void allocateMemoryFromDepth(
         std::shared_ptr<VoxelBlockHash> vbh, std::shared_ptr<View> view,

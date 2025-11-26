@@ -12,8 +12,8 @@ void VisualisationEngine::processFrame(
 
     // 哈希表项
     HashEntry* hashTable = vbh->get_entryData();
-    #pragma omp parallel for
-    for(int i = 0 ; i  < allocateRequests_.size(); ++i){
+#pragma omp parallel for
+    for (int i = 0; i < allocateRequests_.size(); ++i) {
         auto request = allocateRequests_[i];
         HashEntry hashEntry;
         hashEntry.pos = request.head(3);
@@ -193,9 +193,9 @@ void VisualisationEngine::integrateIntoScene(
     Eigen::Matrix4f pose = trackingState->pose_d;
 
     float* depth = (float*)view->depth.data;
-    
-    #pragma omp parallel for
-    for(int i = 0; i < visibleEntryIds_.size(); ++i){
+
+#pragma omp parallel for
+    for (int i = 0; i < visibleEntryIds_.size(); ++i) {
         int entryId = visibleEntryIds_[i];
         HashEntry currentHashEntry = hashTable[entryId];
 
