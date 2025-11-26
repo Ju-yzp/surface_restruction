@@ -32,13 +32,16 @@ add_subdirectory(VisualisationEngine)
 # add_executable(test_relocaiser test/test_relocaiser.cpp)
 # target_link_libraries(test_relocaiser PRIVATE FernRelocLib)
 
-# add_executable(test_subsample test/test_subsample.cpp)
-# target_include_directories( test_subsample PUBLIC
-# ${PROJECT_SOURCE_DIR}/Tracker/include ${Eigen3_INCLUDE_DIRS}
-# ${OpenCV_INCLUDE_DIRS} ${G2O_INCLUDE_DIRS})
+add_executable(test_visualisation test/test_visualisation.cpp)
+target_include_directories(
+  test_visualisation
+  PUBLIC ${PROJECT_SOURCE_DIR}/Tracker/include
+         ${PROJECT_SOURCE_DIR}/VisualisationEngine/include
+         ${Eigen3_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${G2O_INCLUDE_DIRS})
 
-# target_link_libraries(test_subsample PUBLIC ${OpenCV_LIBS} ${G2O_LIBRARIES}
-# Sophus::Sophus)
+target_link_libraries(
+  test_visualisation PUBLIC ${OpenCV_LIBS} ${G2O_LIBRARIES} Sophus::Sophus
+                            VisualisationEngine)
 
 # add_executable(compute_pointcloud test/compute_pointcloud.cpp)
 # target_include_directories( compute_pointcloud PUBLIC

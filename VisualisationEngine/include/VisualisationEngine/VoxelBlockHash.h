@@ -3,11 +3,15 @@
 
 #include <Eigen/Eigen>
 #include <climits>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 
 // 一个体素块边长/一个体素边长
 constexpr int SDF_BLOCK_SIZE = 8;
+
+// 一个体素块所容纳的体素个数
+constexpr int SDF_BLOCK_SIZE3 = 512;
 
 // 哈希表掩码
 constexpr uint32_t SDF_HASH_MASK = 0xfffff;
@@ -37,9 +41,11 @@ public:
 
     T& operator()(int id) { return ptr_[id]; }
 
+    T* get_data() { return ptr_; }
+
 private:
     // 指向申请的堆内存
-    T* ptr_;
+    T* ptr_{nullptr};
 
     // 存储空闲指针的栈
     std::vector<int> free_blocks_;
@@ -47,9 +53,9 @@ private:
 
 // 哈希表实体
 struct HashEntry {
-    Eigen::Vector3i pos;
-    int offset;
-    int ptr;
+    Eigen::Vector3i pos{Eigen::Vector3i::Zero()};  // 记录对应的位置
+    int offset{0};                                 // 解决哈希冲突，所指向的offset
+    int ptr{0};  // 如果>=0那么就是已经分配的，-1代表未分配
 };
 
 // 体素
@@ -69,9 +75,24 @@ public:
                (uint)SDF_HASH_MASK;
     }
 
-    VoxelBlockHash() : hashEntries_(noTotalEntries) {}
+    VoxelBlockHash()
+        : hashEntries_(noTotalEntries), localVoxels_(noTotalEntries * SDF_BLOCK_SIZE3) {}
+
+    HashEntry* get_entryData() { return hashEntries_.get_data(); }
+
+    Voxel* get_voxelData() { return localVoxels_.get_data(); }
+
+    // 截断距离
+    float mu_;
+
+    // 一个体素的边长，其实就是分辨率
+    float voxelSize_;
+
+    // tsdf中的最大权重
+    float max_w_;
 
 private:
     MemoryMannager<HashEntry> hashEntries_;
+    MemoryMannager<Voxel> localVoxels_;
 };
 #endif
