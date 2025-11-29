@@ -261,13 +261,13 @@ void VisualisationEngine::integrateIntoScene(
                     eta = depth_measure - point_in_camera(2);
 
                     // 不在截断区域内,跳过不更新
-                    if (eta < -mu) continue;
+                    if (std::abs(eta) > mu) continue;
 
                     // 更新sdf值
                     old_sdf = localVoxelBlock[localId].sdf;
                     old_weight = localVoxelBlock[localId].w_depth;
                     if (old_weight == max_weight) continue;
-                    new_sdf = std::min(1.0f, eta / mu);
+                    new_sdf = std::max(-1.0f, std::min(1.0f, eta / mu));
                     new_weight = 1.0f;
 
                     new_sdf = old_weight * old_sdf + new_weight * new_sdf;
@@ -307,7 +307,7 @@ Voxel readVoxel(std::shared_ptr<Scene> scene, Eigen::Vector3i point) {
             return voxelBlock[linearId];
         }
 
-        if (hashEntry.offset < 0) return Voxel{1.0f, 0.0f};
+        if (hashEntry.offset < 0) return Voxel();
 
         hashId = hashEntry.offset;
     }
@@ -422,22 +422,20 @@ void VisualisationEngine::raycast(
     // 转换至全局坐标系
     Eigen::Matrix4f inv_m = trackingState->pose_d.inverse();
 
-    // 前进方向
-    Eigen::Vector3f rayDirection;
-
-    float totalLenght, totalLenghtMax;
-
     float oneOverVoxelSize = 1.0f / scene->get_sceneParams().voxelSize;
 
     float stepScale = scene->get_sceneParams().mu * oneOverVoxelSize;
-
-    float stepLen;
 
     cv::Vec4f* data = (cv::Vec4f*)renderState->raycastResult.data;
 
 #pragma omp parallel for
     for (int y = 0; y < rows; ++y) {
         for (int x = 0; x < cols; ++x) {
+            float stepLen;
+            float totalLenght, totalLenghtMax;
+            // 前进方向
+            Eigen::Vector3f rayDirection;
+
             Eigen::Vector3f pointImage(x, y, 1.0f);
             Eigen::Vector3f temp = k_inv * pointImage;
             Eigen::Vector3f pointE = temp * viewFrustum_max;
@@ -463,9 +461,11 @@ void VisualisationEngine::raycast(
 
             float confidence;
 
+            // TODO：这里的sdf_v判断阈值不应该使用硬编码，这样子的形式不仅需要程序员细心，
+            // 还需要对于tsdf有着比较深入的理解，后面会改成软编码形式
             while (totalLenght < totalLenghtMax) {
                 sdf_v = readFromSDFUninterpolated(scene, pt_result);
-                if (sdf_v < 0.1f && sdf_v > -0.5f)
+                if (sdf_v < 0.6f && sdf_v > -0.6f)
                     sdf_v = readFromSDFInterpolated(scene, pt_result);
                 if (sdf_v < 0.0f) break;
                 stepLen = std::max(sdf_v * stepScale, 1.0f);
@@ -475,7 +475,6 @@ void VisualisationEngine::raycast(
             }
 
             if (sdf_v < 0.0f) {
-                if (sdf_v < -1.0f) std::cout << sdf_v << std::endl;
                 stepLen = sdf_v * stepScale;
                 pt_result += stepLen * rayDirection;
 
