@@ -4,7 +4,7 @@
 #include <scene.h>
 #include <settings.h>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 
 inline void checkVoxelVisibility(
     bool& isVisible, Eigen::Vector4f pt, Eigen::Matrix3f& project_m, Eigen::Matrix4f& pose_m,
@@ -165,7 +165,7 @@ inline float readWithConfidenceFromSDFInterpolated(
 
 inline bool computeNormalAndAngle(
     bool smoothing, bool flipNormals, Eigen::Vector3f lightSource, cv::Vec2i point, float voxelSize,
-    Eigen::Vector4f* pointRay, cv::Size2i imgSize, Eigen::Vector3f& output_normmal, float& angle) {
+    Eigen::Vector4f* pointRay, cv::Size2i imgSize, Eigen::Vector3f& output_normal, float& angle) {
     Eigen::Vector4f rayPoints[4];
     if (smoothing) {
         if (point(0) <= 2 || point(1) >= imgSize.height - 3 || point(1) <= 2 ||
@@ -220,18 +220,18 @@ inline bool computeNormalAndAngle(
         }
     }
 
-    output_normmal(0) = -(diff_x(1) * diff_y(2) - diff_x(2) * diff_y(1));
-    output_normmal(1) = -(diff_x(2) * diff_y(0) - diff_x(0) * diff_y(2));
-    output_normmal(2) = -(diff_x(0) * diff_y(1) - diff_x(1) * diff_y(0));
+    output_normal(0) = -(diff_x(1) * diff_y(2) - diff_x(2) * diff_y(1));
+    output_normal(1) = -(diff_x(2) * diff_y(0) - diff_x(0) * diff_y(2));
+    output_normal(2) = -(diff_x(0) * diff_y(1) - diff_x(1) * diff_y(0));
 
-    if (flipNormals) output_normmal *= -1.0f;
-    Eigen::Vector3f temp(output_normmal[0], output_normmal[1], output_normmal[2]);
-    output_normmal *= (1.0f / temp.norm());
+    if (flipNormals) output_normal *= -1.0f;
+    Eigen::Vector3f temp(output_normal[0], output_normal[1], output_normal[2]);
+    output_normal *= (1.0f / temp.norm());
 
     angle = temp.transpose() * lightSource;
     if (!(angle > 0.0)) return false;
     return true;
 }
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction
 
 #endif

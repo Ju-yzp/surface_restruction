@@ -2,7 +2,7 @@
 
 #include <utils.h>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 void allocateVoxelFormDepth(
     std::shared_ptr<Scene> scene, std::shared_ptr<View> view,
     std::shared_ptr<TrackingState> trackingState, bool updateVisibleList) {
@@ -309,4 +309,4 @@ void generatePointCloudsAndNormals(
     }
 }
 
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction

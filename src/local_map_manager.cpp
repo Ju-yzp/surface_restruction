@@ -1,7 +1,8 @@
 #include <localMapManager.h>
 #include <cassert>
+#include <optional>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 ActiveMapDescriptor LocalMapManager::createNewLocalMap(bool isPrimary) {
     ActiveMapDescriptor descriptor;
     descriptor.id = static_cast<int>(activeLocalMaps_.size());
@@ -43,4 +44,48 @@ void LocalMapManager::recordTrackingResult(
             }
     }
 }
-}  // namespace surface_restruction
+
+LocalMapManager::RelocalisationResult LocalMapManager::checkSuccessNewLink(int id) {
+    if (activeLocalMaps_[id].continueSucessTrackAfterReloc >= settings_->nRelocSucess)
+        return RelocalisationResult::RELOCALISATION_SUCESS;
+    if ((settings_->nRelocTrials - activeLocalMaps_[id].trackingAttempts) <
+        (settings_->nRelocSucess - activeLocalMaps_[id].continueSucessTrackAfterReloc))
+        return RelocalisationResult::RELOCALISATION_FAILD;
+
+    return RelocalisationResult::RELOCALISATION_TRYING;
+}
+
+bool LocalMapManager::maintainActiveData() {
+    std::optional<int> moveLocalMapId;
+
+    for (int i = 0; i < activeLocalMaps_.size(); ++i) {
+        ActiveMapDescriptor& localMap = activeLocalMaps_[i];
+        if (localMap.state == LocalMapState::RELOCALISATION) {
+            RelocalisationResult relocResult = checkSuccessNewLink(i);
+            if (relocResult == RelocalisationResult::RELOCALISATION_SUCESS) {
+                if (!moveLocalMapId.has_value())
+                    moveLocalMapId = i;
+                else
+                    localMap.state = LocalMapState::LOST;
+            } else if (relocResult == RelocalisationResult::RELOCALISATION_FAILD)
+                localMap.state = LocalMapState::LOST;
+        }
+    }
+
+    std::vector<int> restartLinksToLocalMaps;
+    std::optional<int> primaryId;
+
+    for (int i = 0; i < activeLocalMaps_.size(); ++i) {
+        ActiveMapDescriptor& localMap = activeLocalMaps_[i];
+
+        if (moveLocalMapId.has_value() && moveLocalMapId.value() == i)
+            localMap.state = LocalMapState::PRIMARY_LOCAL_MAP;
+
+        if (localMap.state == LocalMapState::PRIMARY_LOCAL_MAP && moveLocalMapId.has_value() &&
+            i != moveLocalMapId.value()) {
+            localMap.state = LocalMapState::LOST;
+            restartLinksToLocalMaps.emplace_back(localMap.id);
+        }
+    }
+}
+}  // namespace surface_reconstruction

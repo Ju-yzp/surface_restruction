@@ -8,6 +8,8 @@
 #include <Eigen/Eigen>
 
 struct Intrinsic {
+    Intrinsic() = default;
+
     Intrinsic(float fx, float fy, float cx, float cy) {
         k(0, 0) = fx;
         k(1, 1) = fy;
@@ -50,6 +52,8 @@ struct RGBDCalibrationParams {
           scale(scale_) {
         rgb_to_depth = depth_to_rgb.inverse();
     }
+
+    RGBDCalibrationParams() {}
 
     // rgb相机内参
     Intrinsic rgb;

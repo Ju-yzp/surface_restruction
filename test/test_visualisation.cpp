@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
     RGBDCalibrationParams calibrationParams(depth, depth, Eigen::Matrix4f(), 0.3f, 4.0f, 5000.0f);
 
     // 深度图
-    std::string file1_path = "/home/adrewn/surface_restruction/data/1305031102.194330.png";
+    std::string file1_path = "/home/adrewn/surface_reconstruction/data/1305031102.194330.png";
     std::shared_ptr<View> view = std::make_shared<View>(calibrationParams);
     view->depth = getDepth(file1_path);
 

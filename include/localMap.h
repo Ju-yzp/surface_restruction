@@ -6,7 +6,7 @@
 
 #include <settings.h>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 class LocalMap {
 public:
     LocalMap(Eigen::Matrix4f estimatedGlobalPoseconst, const std::shared_ptr<Settings> settings);
@@ -20,6 +20,6 @@ private:
     // 子地图在全局坐标系中的位姿估计
     Eigen::Matrix4f estimatedGlobalPose_;
 };
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction
 
 #endif  // LOCAL_MAP_H_

@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <memory>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 class TrackingState {
 public:
     enum class TrackingResult : uint8_t {
@@ -90,6 +90,6 @@ private:
     // 当前跟踪结果
     TrackingResult tracking_result_{TrackingResult::TRACKING_GOOD};
 };
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction
 
 #endif  // TRACKING_STATE_H_

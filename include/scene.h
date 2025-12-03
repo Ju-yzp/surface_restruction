@@ -13,7 +13,7 @@
 
 #include <settings.h>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 // 哈希表实体
 struct HashEntry {
     // 指向的体素块的坐标
@@ -129,6 +129,6 @@ private:
 
     std::set<int> currentFrameVisibleVoxelBlockIdList_;
 };
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction
 
 #endif  // SCENE_H_

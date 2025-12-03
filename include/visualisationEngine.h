@@ -7,7 +7,7 @@
 #include <view.h>
 #include <memory>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 void allocateVoxelFormDepth(
     std::shared_ptr<Scene> scene, std::shared_ptr<View> view,
     std::shared_ptr<TrackingState> trackingState, bool updateVisibleList = true);
@@ -23,6 +23,6 @@ void raycast(
 void generatePointCloudsAndNormals(
     Eigen::Vector3f lightSource, float voxelSize, std::shared_ptr<RenderState> renderState,
     std::shared_ptr<TrackingState> trackingState);
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction
 
 #endif  // VISUALISATION_ENGINE_H_+

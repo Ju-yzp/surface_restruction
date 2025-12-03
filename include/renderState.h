@@ -7,7 +7,7 @@
 
 #include <memory>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 struct RenderState {
     RenderState(cv::Size imgSize) {
         raycastResult =
@@ -26,5 +26,5 @@ struct RenderState {
 
     bool flipNormals{false};
 };
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction
 #endif

@@ -2,6 +2,7 @@
 #define LOCAL_MAP_MANAGER_H_
 
 // cpp
+#include <settings.h>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -10,7 +11,7 @@
 #include <localMap.h>
 #include <trackingState.h>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 
 enum class LocalMapState : uint8_t {
     PRIMARY_LOCAL_MAP = 0,
@@ -25,6 +26,7 @@ struct ActiveMapDescriptor {
     LocalMapState state{LocalMapState::NEW_LOCAL_MAP};
     int id{-1};
     int trackingAttempts{0};
+    int continueSucessTrackAfterReloc{0};
 };
 
 class LocalMapManager {
@@ -37,11 +39,23 @@ public:
 
     void recordTrackingResult(int localMapId, std::shared_ptr<TrackingState> tracking_state);
 
+    bool maintainActiveData();
+
 private:
+    enum class RelocalisationResult : uint8_t {
+        RELOCALISATION_FAILD = 0,
+        RELOCALISATION_TRYING = 1,
+        RELOCALISATION_SUCESS = 2,
+    };
+
+    std::shared_ptr<Settings> settings_;
+
+    RelocalisationResult checkSuccessNewLink(int id);
+
     std::vector<ActiveMapDescriptor> activeLocalMaps_;
 
     std::vector<std::shared_ptr<LocalMap>> allLocalMaps_;
 };
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction
 
 #endif  // LOCAL_MAP_MANAGER_H_

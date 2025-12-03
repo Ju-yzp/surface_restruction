@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <opencv2/opencv.hpp>
 
-namespace surface_restruction {
+namespace surface_reconstruction {
 struct Settings {
     // 彩色图像尺寸
     cv::Size2i rgb_imageSize{0, 0};
@@ -44,6 +44,21 @@ struct Settings {
 
     // 平移权重
     float translation_weight{0.6f};
+
+    // 图像金字塔层数
+    int nPyramidLevel{4};
+
+    // 重定位成功次数
+    int nRelocSucess{30};
+
+    // 重定位尝试次数最大次数
+    int nRelocTrials{20};
+
+    // 追踪最少有效点
+    int minNVaildPoints{1000};
+
+    // LM的lamdba尺度因子
+    float lamdbaScale{7.0f};
 };
-}  // namespace surface_restruction
+}  // namespace surface_reconstruction
 #endif  // SETTINGS_H_
