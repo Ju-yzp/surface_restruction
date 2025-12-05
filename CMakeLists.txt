@@ -21,6 +21,7 @@ find_package(OpenMP REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(PCL REQUIRED)
 
 # set(OrbbecSDK_DIR "/home/adrewn/OrbbecSDK") find_package(OrbbecSDK REQUIRED)
 
@@ -50,4 +51,4 @@ target_include_directories(
                       ${G2O_INCLUDE_DIRS} ${visualization_msgs_INCLUDE_DIRS})
 
 target_link_libraries(test_tracker PUBLIC ${OpenCV_LIBS} ${G2O_LIBRARIES}
-                                          Sophus::Sophus)
+                                          ${PCL_LIBRARIES} Sophus::Sophus)

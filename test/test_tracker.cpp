@@ -7,6 +7,7 @@
 
 // cpp
 #include <Eigen/Geometry>
+#include <cmath>
 #include <memory>
 
 // opencv
@@ -58,9 +59,10 @@ int main() {
         for (int x{0}; x < cols; ++x) {
             Eigen::Vector4f& point = (*pointsMap)[x + y * cols];
             float depth_measure = view->depth.at<float>(y, x);
-
-            point(3) = -1.f;
-            if (depth_measure < 1e-5) continue;
+            if (std::isnan(depth_measure)) {
+                point = Eigen::Vector4f::Constant(std::numeric_limits<float>::quiet_NaN());
+                continue;
+            }
             point << depth_measure * (k_inv * Eigen::Vector3f(x, y, 1.0f)), 1.0f;
             point = t1 * point;
         }

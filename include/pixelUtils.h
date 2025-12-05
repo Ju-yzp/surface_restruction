@@ -3,6 +3,7 @@
 
 // opencv
 #include <opencv2/core/hal/interface.h>
+#include <cmath>
 #include <opencv2/core/matx.hpp>
 #include <opencv2/opencv.hpp>
 
@@ -48,15 +49,18 @@ inline void filterSubsampleWithHoles(
 
                 int nVaildPoints{0};
                 for (int k{0}; k < 4; ++k)
-                    if (pixel_in[k] >= 0.0f) {
+                    if (!std::isnan(pixel_in[k])) {
                         pixel_out += pixel_in[k];
                         ++nVaildPoints;
                     }
 
-                if (nVaildPoints > 0) pixel_out /= (float)nVaildPoints;
+                if (nVaildPoints > 0)
+                    pixel_out /= (float)nVaildPoints;
+                else
+                    pixel_out = std::numeric_limits<float>::quiet_NaN();
                 output.template at<float>(y, x) = pixel_out;
             } else if constexpr (std::is_same_v<T, NormlsAndPointsMap>) {
-                Eigen::Vector4f pixel_in[4], pixel_out;
+                Eigen::Vector4f pixel_in[4], pixel_out = Eigen::Vector4f::Zero();
                 pixel_in[0] = (*input)[y * 2 * input_size(1) + x * 2];
                 pixel_in[1] = (*input)[(y * 2 + 1) * input_size(1) + x * 2 + 1];
                 pixel_in[2] = (*input)[(y * 2 + 1) * input_size(1) + x * 2];
@@ -64,18 +68,17 @@ inline void filterSubsampleWithHoles(
 
                 int nVaildPoints{0};
                 for (int k{0}; k < 4; ++k)
-                    if (pixel_in[k](3) >= 0.0f) {
+                    if (!std::isnan(pixel_in[k](3))) {
                         pixel_out += pixel_in[k];
                         ++nVaildPoints;
                     }
 
                 if (nVaildPoints == 0) {
-                    pixel_out(3) = -1.0f;
+                    pixel_out = Eigen::Vector4f::Constant(std::numeric_limits<float>::quiet_NaN());
 
                     (*output)[x + y * output_cols] = pixel_out;
                     continue;
                 }
-
                 pixel_out /= (float)nVaildPoints;
                 if (isNormal) {
                     float norm = pixel_out.head(3).norm();
@@ -90,16 +93,16 @@ inline void filterSubsampleWithHoles(
 }
 
 // 将无符号16位的原始深度图转换为以m为单位的float图像
-inline void convertShortToFloat(cv::Mat* input, cv::Mat* output, float scale) {
-    output->create(input->rows, input->cols, CV_32F);
+// inline void convertShortToFloat(cv::Mat* input, cv::Mat* output, float scale) {
+//     output->create(input->rows, input->cols, CV_32F);
 
-    for (int y{0}; y < output->rows; ++y) {
-        for (int x{0}; x < output->cols; ++x) {
-            int32_t pixel_in = input->at<uint16_t>(y, x);
-            if (pixel_in > 0) output->at<float>(y, x) = (float)pixel_in / scale;
-        }
-    }
-}
+//     for (int y{0}; y < output->rows; ++y) {
+//         for (int x{0}; x < output->cols; ++x) {
+//             int32_t pixel_in = input->at<uint16_t>(y, x);
+//             if (pixel_in > 0) output->at<float>(y, x) = (float)pixel_in / scale;
+//         }
+//     }
+// }
 
 // 深度图、法向量图、点云图插值
 inline Eigen::Vector4f interpolateBilinear_withHoles(
@@ -113,11 +116,8 @@ inline Eigen::Vector4f interpolateBilinear_withHoles(
     Eigen::Vector4f result;
     Eigen::Vector2f delta{coorinate(0) - imgPoint(0), coorinate(1) - imgPoint(1)};
 
-    if (a(3) < 0.0f || a(3) < 0.0f || c(3) < 0.0f || d(3) < 0.0f) {
-        result(0) = 0.0f;
-        result(1) = 0.0f;
-        result(2) = 0.0f;
-        result(3) = -1.0f;
+    if (std::isnan(a(3)) || std::isnan(b(3)) || std::isnan(c(3)) || std::isnan(d(3))) {
+        result(3) = std::numeric_limits<float>::quiet_NaN();
         return result;
     }
 
@@ -142,8 +142,7 @@ inline void computeNormalMap(
     for (int y{0}; y < rows; ++y)
         for (int x{0}; x < cols; ++x) {
             Eigen::Vector4f& normal = (*normalMap)[x + y * cols];
-            normal(3) = -1.0f;
-
+            normal = Eigen::Vector4f::Constant(std::numeric_limits<float>::quiet_NaN());
             Eigen::Vector4f diff_x, diff_y;
 
             if (x <= 2 || x >= cols - 3 || y <= 2 || y >= rows - 3) continue;
@@ -155,14 +154,19 @@ inline void computeNormalMap(
 
             bool doPlus{false};
 
-            if (points[0](3) < 0.0f || points[1](3) < 0.0f || points[2](3) < 0.0f ||
-                points[3](3) < 0.0f)
+            if (std::isnan(points[0](3)) || std::isnan(points[1](3)) || std::isnan(points[2](3)) ||
+                std::isnan(points[3](3)))
                 doPlus = true;
+
             if (doPlus) {
                 points[0] = (*pointcloudMap)[x + 1 + y * cols];
                 points[1] = (*pointcloudMap)[x + (y + 1) * cols];
                 points[2] = (*pointcloudMap)[x - 1 + y * cols];
                 points[3] = (*pointcloudMap)[x + (y - 1) * cols];
+
+                if (std::isnan(points[0](3)) || std::isnan(points[1](3)) ||
+                    std::isnan(points[2](3)) || std::isnan(points[3](3)))
+                    continue;
             }
             diff_x = points[0] - points[2];
             diff_y = points[1] - points[3];

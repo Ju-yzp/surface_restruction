@@ -7,14 +7,132 @@
 
 // cpp
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 // opencv
 #include <memory>
 #include <opencv2/opencv.hpp>
 
+#include <optional>
 #include <sophus/se3.hpp>
+
+// pcl
+#include <pcl/console/time.h>
+#include <pcl/features/fpfh_omp.h>
+#include <pcl/features/normal_3d_omp.h>
+#include <pcl/filters/filter.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/registration/ia_fpcs.h>
+#include <pcl/registration/ia_kfpcs.h>
+#include <pcl/registration/sample_consensus_prerejective.h>
+#include <pcl/visualization/pcl_visualizer.h>
+#include <boost/thread/thread.hpp>
+#include <stdexcept>
+
 namespace surface_reconstruction {
+
+typedef pcl::PointXYZ PointT;
+typedef pcl::PointCloud<PointT> pointcloud;
+typedef pcl::PointCloud<pcl::Normal> pointnormal;
+typedef pcl::PointCloud<pcl::FPFHSignature33> fpfhFeature;
+
+pointcloud::Ptr vectorToPointCloud(std::shared_ptr<std::vector<Eigen::Vector4f>> input_data) {
+    pointcloud::Ptr cloud(new pointcloud);
+    cloud->points.reserve(input_data->size());
+
+    for (const auto& vec : *input_data) {
+        if (std::isnan(vec(3))) continue;
+        PointT p;
+        p.x = vec[0];
+        p.y = vec[1];
+        p.z = vec[2];
+        cloud->points.push_back(p);
+    }
+
+    cloud->width = cloud->points.size();
+    std::cout << "DEBUG: Cloud size : " << cloud->points.size() << std::endl;
+    cloud->height = 1;
+    return cloud;
+}
+
+pointcloud::Ptr vectorToPointCloud(const cv::Mat& depth, Intrinsic depthIntrinsics) {
+    pointcloud::Ptr cloud(new pointcloud);
+    cloud->points.reserve(depth.rows * depth.cols);
+    int rows = depth.rows;
+    int cols = depth.cols;
+    float* depth_data = (float*)depth.data;
+    Eigen::Matrix3f k_inv = depthIntrinsics.k_inv;
+
+    for (int y{0}; y < rows; ++y) {
+        for (int x{0}; x < cols; ++x) {
+            float depth_measure = depth_data[y * cols + x];
+            if (std::isnan(depth_measure)) continue;
+            Eigen::Vector3f point = k_inv * Eigen::Vector3f(x, y, 1.0f) * depth_measure;
+            PointT p;
+            p.x = point[0];
+            p.y = point[1];
+            p.z = point[2];
+            cloud->points.push_back(p);
+        }
+    }
+
+    cloud->width = cloud->points.size();
+    std::cout << "DEBUG: Cloud size  " << cloud->points.size() << std::endl;
+    cloud->height = 1;
+    return cloud;
+}
+
+fpfhFeature::Ptr compute_fpfh_feature(pointcloud::Ptr input_cloud) {
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+
+    pointnormal::Ptr normals(new pointnormal);
+    pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> n;
+    n.setInputCloud(input_cloud);
+    n.setNumberOfThreads(8);
+    n.setSearchMethod(tree);
+    n.setKSearch(10);
+    n.compute(*normals);
+
+    fpfhFeature::Ptr fpfh(new fpfhFeature);
+    pcl::FPFHEstimationOMP<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fest;
+    fest.setNumberOfThreads(8);
+    fest.setInputCloud(input_cloud);
+    fest.setInputNormals(normals);
+    fest.setSearchMethod(tree);
+    fest.setKSearch(10);
+    fest.compute(*fpfh);
+
+    return fpfh;
+}
+
+std::optional<Eigen::Matrix4f> ransac_registration(
+    pointcloud::Ptr source, pointcloud::Ptr target, fpfhFeature::Ptr source_fpfh,
+    fpfhFeature::Ptr target_fpfh) {
+    pcl::SampleConsensusPrerejective<PointT, PointT, pcl::FPFHSignature33> r_sac;
+    pointcloud::Ptr aligned(new pointcloud);
+
+    r_sac.setInputSource(source);
+    r_sac.setInputTarget(target);
+    r_sac.setSourceFeatures(source_fpfh);
+    r_sac.setTargetFeatures(target_fpfh);
+    r_sac.setCorrespondenceRandomness(5);
+    r_sac.setInlierFraction(0.5f);
+    r_sac.setNumberOfSamples(3);
+    r_sac.setSimilarityThreshold(0.9f);
+    r_sac.setMaxCorrespondenceDistance(0.1f);
+    r_sac.setMaximumIterations(1000);
+
+    pcl::console::TicToc time;
+    time.tic();
+
+    r_sac.align(*aligned);
+    if (!r_sac.hasConverged())
+        return std::nullopt;
+    else
+        return r_sac.getFinalTransformation();
+}
 
 Tracker::Tracker(
     std::shared_ptr<Settings> settins, int nPyramidLevel, int maxNIteration, int minNIteration,
@@ -44,12 +162,31 @@ void Tracker::track(std::shared_ptr<View> view, std::shared_ptr<TrackingState> t
     Eigen::Vector<float, 6> nabla_good = Eigen::Vector<float, 6>::Zero();
     int nVaildPoints_good{0};
 
+    bool coarseRgistration{false};
+
     for (int level = nPyramidLevel_ - 1; level >= 0; --level) {
         // 相机到世界坐标系
         Eigen::Matrix4f approxPose = trackingState->get_current_camera_in_localmap().inverse();
         Eigen::Matrix4f old_pose = trackingState->get_current_camera_in_localmap().inverse();
         float old_f = std::numeric_limits<float>::infinity();
         float lamdba{1.0f};
+
+        if (!coarseRgistration) {
+            coarseRgistration = true;
+            pointcloud::Ptr source = vectorToPointCloud(pointcloudPyramid_[level]);
+            pointcloud::Ptr target =
+                vectorToPointCloud(depthPyramid_[level], depthIntrinsicsPyramid_[level]);
+            if (target->empty() || source->empty()) throw std::runtime_error("pointcloud isempty");
+            fpfhFeature::Ptr source_fpfh = compute_fpfh_feature(source);
+            fpfhFeature::Ptr target_fpfh = compute_fpfh_feature(target);
+            auto pose = ransac_registration(source, target, source_fpfh, target_fpfh);
+            if (pose.has_value())
+                approxPose = pose.value();
+            else
+                std::cout << "Solve Failed" << std::endl;
+            if (pose.has_value()) std::cout << pose.value() << std::endl;
+            coarseRgistration = true;
+        }
 
         for (int i = 0; i < nIterationPyramid_[level]; ++i) {
             float local_f = {0.0f};
@@ -110,8 +247,6 @@ void Tracker::prepare(std::shared_ptr<View> view, std::shared_ptr<TrackingState>
     }
 
     for (int i = 1; i < nPyramidLevel_; ++i) {
-        // 彩色图像金字塔下采样
-        // cv::pyrDown(rgbPyramid_[i - 1], rgbPyramid_[i]);
         // 深度和法向量图像金字塔下采样
         Eigen::Vector2i mapSize{depthPyramid_[i - 1].rows, depthPyramid_[i - 1].cols};
         filterSubsampleWithHoles(depthPyramid_[i - 1], depthPyramid_[i], mapSize);
@@ -176,7 +311,7 @@ void Tracker::computeHessianAndGradient(
 
             float b;
             float currentDepth = depth[x + offset];
-            if (currentDepth < 1e-4) continue;
+            if (std::isnan(currentDepth)) continue;
             Eigen::Vector3f currentPointcloud(x, y, 1.0f);
             currentPointcloud = currentDepth * k_inv * currentPointcloud;
 
@@ -187,7 +322,7 @@ void Tracker::computeHessianAndGradient(
                      (Eigen::Vector4f() << currentPointcloud, 1.0f).finished())
                         .head(3);
 
-            if (point_in_last_view(2) < 1e-4) continue;
+            if (point_in_last_view(2) < 1e-3) continue;
 
             point_in_last_view /= point_in_last_view(2);
 
@@ -196,10 +331,10 @@ void Tracker::computeHessianAndGradient(
                 continue;
             Eigen::Vector4f point =
                 interpolateBilinear_withHoles(pointsMap, point_in_last_view.head(2), cols);
-            if (point(3) < 0.0f) continue;
+            if (std::isnan(point(3))) continue;
             Eigen::Vector4f normal =
                 interpolateBilinear_withHoles(normalMap, point_in_last_view.head(2), cols);
-            if (normal(3) < 0.0f) continue;
+            if (std::isnan(normal(3))) continue;
             b = normal.head(3).dot(point_.head(3) - point.head(3));
 
             float depthWeight =
@@ -211,14 +346,13 @@ void Tracker::computeHessianAndGradient(
             local_f = rho(b, spaceThreshold) * pow(depthWeight, 2);
             f += local_f;
 
-            // hessian += rho_deriv2(b, spaceThreshold) * A.transpose() * A * pow(depthWeight, 2);
-            // nabla += -A.transpose()* local_f * pow(depthWeight, 2) * rho_deriv(b,spaceThreshold);
             hessian += rho_deriv2(b, spaceThreshold) * A.transpose() * A * pow(depthWeight, 2);
             nabla +=
                 -A.transpose() * depthWeight * rho_deriv(b, spaceThreshold) * pow(depthWeight, 2);
             nVaildPoints++;
         }
     }
+    std::cout << f << std::endl;
 }
 
 void Tracker::computeDelta(

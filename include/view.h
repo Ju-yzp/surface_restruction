@@ -42,6 +42,9 @@ struct View {
             for (int x{0}; x < cols; ++x) {
                 int offset = x + y * cols;
                 depthPtr[offset] = (float)originDepthPtr[offset] / scale;
+
+                if (depthPtr[offset] <= 1e-3)
+                    depthPtr[offset] = std::numeric_limits<float>::quiet_NaN();
             }
     }
 };

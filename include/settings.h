@@ -58,7 +58,7 @@ struct Settings {
     int minNVaildPoints{100};
 
     // LM的lamdba尺度因子
-    float lamdbaScale{1.6f};
+    float lamdbaScale{2.0f};
 
     // LM最大迭代次数
     int maxNLMIteration{10};
