@@ -46,7 +46,7 @@ struct Settings {
     float translation_weight{0.6f};
 
     // 图像金字塔层数
-    int nPyramidLevel{4};
+    int nPyramidLevel{3};
 
     // 重定位成功次数
     int nRelocSucess{30};
@@ -55,21 +55,21 @@ struct Settings {
     int nRelocTrials{20};
 
     // 追踪最少有效点
-    int minNVaildPoints{100};
+    int minNVaildPoints{600};
 
     // LM的lamdba尺度因子
-    float lamdbaScale{2.0f};
+    float lamdbaScale{10.0f};
 
     // LM最大迭代次数
-    int maxNLMIteration{10};
+    int maxNLMIteration{8};
 
     // LM最小迭代次数
-    int minNLMIteration{2};
+    int minNLMIteration{4};
 
     // 追踪器鲁棒参数
-    float maxSpaceThreshold{0.15f};
+    float maxSpaceThreshold{0.8f};
 
-    float minSpaceThreshold{0.06f};
+    float minSpaceThreshold{0.04f};
 };
 }  // namespace surface_reconstruction
 #endif  // SETTINGS_H_

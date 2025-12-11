@@ -23,6 +23,10 @@ void raycast(
 void generatePointCloudsAndNormals(
     Eigen::Vector3f lightSource, float voxelSize, std::shared_ptr<RenderState> renderState,
     std::shared_ptr<TrackingState> trackingState);
+
+void processFrame(
+    std::shared_ptr<Scene> scene, std::shared_ptr<View> view,
+    std::shared_ptr<TrackingState> trackingState);
 }  // namespace surface_reconstruction
 
 #endif  // VISUALISATION_ENGINE_H_+

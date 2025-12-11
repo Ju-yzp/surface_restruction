@@ -30,7 +30,7 @@ struct View {
     // 相机标定参数
     RGBDCalibrationParams calibrationParams;
 
-    void processDepth(cv::Mat& origin_depth) {
+    void processDepth(cv::Mat origin_depth) {
         int rows = origin_depth.rows;
         int cols = origin_depth.cols;
 

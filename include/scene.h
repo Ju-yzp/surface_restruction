@@ -36,9 +36,12 @@ struct Voxel {
 class Scene {
 public:
     Scene(std::shared_ptr<Settings> settings) {
-        if (!settings_) settings_ = settings;
+        settings_ = settings;
 
         hashEntries_ = new HashEntry[settings_->sdf_bucket_num + settings_->sdf_excess_list_size];
+
+        freeVoxelBlockNum = settings_->sdf_bucket_num + settings_->sdf_excess_list_size;
+
         voxel_ = new Voxel
             [(settings_->sdf_bucket_num + settings_->sdf_excess_list_size) *
              settings_->sdf_block_size3];
@@ -56,7 +59,7 @@ public:
     }
 
     // 哈希表索引函数
-    static int getHashIndex(Eigen::Vector3i voxelBlockPos) {
+    int getHashIndex(Eigen::Vector3i voxelBlockPos) {
         return (((uint)voxelBlockPos(0) * 73856093u) ^ ((uint)voxelBlockPos(1) * 19349669u) ^
                 ((uint)voxelBlockPos(2) * 83492791u)) &
                (uint)settings_->sdf_hash_mask;
@@ -116,6 +119,12 @@ public:
         hashEntries_[id].offset = -1;
     }
 
+    bool hasFreeScene() { return freeVoxelBlockNum >= 0; }
+
+    void allocateVoxelBlock() {
+        if (hasFreeScene()) --freeVoxelBlockNum;
+    }
+
 private:
     Voxel* voxel_{nullptr};
 
@@ -123,11 +132,13 @@ private:
 
     std::vector<int> freeExcessEntries_;
 
-    static std::shared_ptr<Settings> settings_;
+    std::shared_ptr<Settings> settings_;
 
     std::set<int> lastFrametVisibleVoxelBlockList_;
 
     std::set<int> currentFrameVisibleVoxelBlockIdList_;
+
+    int freeVoxelBlockNum;
 };
 }  // namespace surface_reconstruction
 

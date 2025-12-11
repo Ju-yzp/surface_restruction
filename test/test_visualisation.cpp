@@ -51,75 +51,73 @@ cv::Mat computeDepthFromPointsMap(cv::Mat& pointsMap, Eigen::Matrix4f& world_to_
     return depth;
 }
 
-// class VisualVoxel : public rclcpp::Node {
-// public:
-//     VisualVoxel() : Node("Test") {
-//         marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-//             "voxel_blocks_markers", 10);
-//         RCLCPP_INFO(
-//             this->get_logger(),
-//             "VisualVoxel node initialized. Publishing to /voxel_blocks_markers.");
-//     }
+class VisualVoxel : public rclcpp::Node {
+public:
+    VisualVoxel() : Node("Test") {
+        marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+            "voxel_blocks_markers", 10);
+        RCLCPP_INFO(
+            this->get_logger(),
+            "VisualVoxel node initialized. Publishing to /voxel_blocks_markers.");
+    }
 
-//     void publish(std::shared_ptr<Scene> scene) {
-//         visualization_msgs::msg::MarkerArray marker_array;
-//         visualization_msgs::msg::Marker marker;
+    void publish(std::shared_ptr<Scene> scene) {
+        visualization_msgs::msg::MarkerArray marker_array;
+        visualization_msgs::msg::Marker marker;
 
-//         marker.header.frame_id = "map";
-//         marker.header.stamp = rclcpp::Clock().now();
-//         marker.ns = "visible_voxels";
+        marker.header.frame_id = "map";
+        marker.header.stamp = rclcpp::Clock().now();
+        marker.ns = "visible_voxels";
 
-//         marker.type = visualization_msgs::msg::Marker::CUBE_LIST;
-//         marker.action = visualization_msgs::msg::Marker::ADD;
-//         marker.id = 0;
+        marker.type = visualization_msgs::msg::Marker::CUBE_LIST;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.id = 0;
 
-//         marker.pose.orientation.w = 1.0;
+        marker.pose.orientation.w = 1.0;
 
-//         float voxelSize = scene->get_sceneParams().voxelSize;
+        float voxelSize = scene->get_sceneParams().voxelSize;
 
-//         marker.scale.x = voxelSize;
-//         marker.scale.y = voxelSize;
-//         marker.scale.z = voxelSize;
+        marker.scale.x = voxelSize;
+        marker.scale.y = voxelSize;
+        marker.scale.z = voxelSize;
 
-//         marker.color.a = 0.4;
-//         marker.color.r = 1.0;
-//         marker.color.g = 0.0;
-//         marker.color.b = 0.0;
+        marker.color.a = 0.4;
+        marker.color.r = 1.0;
+        marker.color.g = 0.0;
+        marker.color.b = 0.0;
 
-//         std::set<int> currentVisibleVoxelBlock = scene->get_currentFrameVisibleVoxelBlockList();
-//         for (std::set<int>::iterator it = currentVisibleVoxelBlock.begin();
-//              it != currentVisibleVoxelBlock.end(); ++it) {
-//             HashEntry& entry = scene->get_entry(*it);
-//             Voxel* localVoxelBlock = scene->get_voxelBolck(entry.ptr);
-//             geometry_msgs::msg::Point center;
-//             Eigen::Vector3i globalPos = entry.pos * SDF_BLOCK_SIZE;
-//             for (int z = 0; z < SDF_BLOCK_SIZE; ++z)
-//                 for (int y = 0; y < SDF_BLOCK_SIZE; ++y)
-//                     for (int x = 0; x < SDF_BLOCK_SIZE; ++x) {
-//                         int localId = x + y * SDF_BLOCK_SIZE + z * SDF_BLOCK_SIZE *
-//                         SDF_BLOCK_SIZE;
+        std::set<int> currentVisibleVoxelBlock = scene->get_currentFrameVisibleVoxelBlockList();
+        for (std::set<int>::iterator it = currentVisibleVoxelBlock.begin();
+             it != currentVisibleVoxelBlock.end(); ++it) {
+            HashEntry& entry = scene->get_entry(*it);
+            Voxel* localVoxelBlock = scene->get_voxelBolck(entry.ptr);
+            geometry_msgs::msg::Point center;
+            Eigen::Vector3i globalPos = entry.pos * SDF_BLOCK_SIZE;
+            for (int z = 0; z < SDF_BLOCK_SIZE; ++z)
+                for (int y = 0; y < SDF_BLOCK_SIZE; ++y)
+                    for (int x = 0; x < SDF_BLOCK_SIZE; ++x) {
+                        int localId = x + y * SDF_BLOCK_SIZE + z * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 
-//                         Voxel* localVoxel = &localVoxelBlock[localId];
-//                         if (localVoxel->sdf < 0.4 && localVoxel->sdf > -0.4f) {
-//                             //
-//                             计算世界坐标系下的位置，需要从体素块的表达方式进行计算,转换至笛卡尔坐标系
-//                             Eigen::Vector4f point_in_world;
-//                             center.x = (globalPos(0) + x) * voxelSize + voxelSize / 2.0f;
-//                             center.y = (globalPos(1) + y) * voxelSize + voxelSize / 2.0f;
-//                             center.z = (globalPos(2) + z) * voxelSize + voxelSize / 2.0f;
+                        Voxel* localVoxel = &localVoxelBlock[localId];
+                        if (localVoxel->sdf < 0.4 && localVoxel->sdf > -0.4f) {
+                            //计算世界坐标系下的位置，需要从体素块的表达方式进行计算,转换至笛卡尔坐标系
+                            Eigen::Vector4f point_in_world;
+                            center.x = (globalPos(0) + x) * voxelSize + voxelSize / 2.0f;
+                            center.y = (globalPos(1) + y) * voxelSize + voxelSize / 2.0f;
+                            center.z = (globalPos(2) + z) * voxelSize + voxelSize / 2.0f;
 
-//                             marker.points.push_back(center);
-//                         }
-//                     }
-//         }
+                            marker.points.push_back(center);
+                        }
+                    }
+        }
 
-//         marker_array.markers.push_back(marker);
-//         marker_pub_->publish(marker_array);
-//     }
+        marker_array.markers.push_back(marker);
+        marker_pub_->publish(marker_array);
+    }
 
-// private:
-//     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
-// };
+private:
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+};
 
 int main(int argc, char* argv[]) {
     // 相机参数
@@ -155,21 +153,11 @@ int main(int argc, char* argv[]) {
     VisualisationEngine ve;
     ve.processFrame(scene, view, ts);
     ve.prepare(scene, view, ts, rs);
-    // rclcpp::init(argc, argv);
-    // auto visual_node = std::make_shared<VisualVoxel>();
-    // visual_node->publish(scene);
-    // rclcpp::spin(visual_node);
-    // rclcpp::shutdown();
-    // return 0;
-    //     scene->swapVisibleList();
-    // ve.prepare(scene, view, ts, rs);
-
-    cv::Mat p = computeDepthFromPointsMap(ts->pointsMap, ts->pose_d);
-    cv::namedWindow("Subsample", cv::WINDOW_AUTOSIZE);
-    cv::namedWindow("ubsample", cv::WINDOW_AUTOSIZE);
-
-    cv::imshow("Subsample", p);
-    cv::imshow("ubsample", view->depth);
-
-    cv::waitKey();
+    rclcpp::init(argc, argv);
+    auto visual_node = std::make_shared<VisualVoxel>();
+    visual_node->publish(scene);
+    rclcpp::spin(visual_node);
+    rclcpp::shutdown();
+    return 0;
+    scene->swapVisibleList();
 }

@@ -28,7 +28,7 @@ public:
     void prepare(std::shared_ptr<View> view, std::shared_ptr<TrackingState> trackingState);
 
     // 写入追踪质量
-    void updateQualityOfTracking();
+    void updateQualityOfTracking(std::shared_ptr<TrackingState> trackingState, float f);
 
     // 计算深度图像的hessian矩阵和梯度值
     void computeHessianAndGradient(

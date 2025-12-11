@@ -15,124 +15,124 @@
 #include <opencv2/opencv.hpp>
 
 #include <optional>
-#include <sophus/se3.hpp>
 
 // pcl
-#include <pcl/console/time.h>
-#include <pcl/features/fpfh_omp.h>
-#include <pcl/features/normal_3d_omp.h>
-#include <pcl/filters/filter.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <pcl/registration/ia_fpcs.h>
-#include <pcl/registration/ia_kfpcs.h>
-#include <pcl/registration/sample_consensus_prerejective.h>
-#include <pcl/visualization/pcl_visualizer.h>
-#include <boost/thread/thread.hpp>
+// #include <pcl/console/time.h>
+// #include <pcl/features/fpfh_omp.h>
+// #include <pcl/features/normal_3d_omp.h>
+// #include <pcl/filters/filter.h>
+// #include <pcl/io/pcd_io.h>
+// #include <pcl/point_types.h>
+// #include <pcl/registration/ia_fpcs.h>
+// #include <pcl/registration/ia_kfpcs.h>
+// #include <pcl/registration/sample_consensus_prerejective.h>
+// #include <pcl/visualization/pcl_visualizer.h>
+// #include <boost/thread/thread.hpp>
 #include <stdexcept>
+#include "trackingState.h"
 
 namespace surface_reconstruction {
 
-typedef pcl::PointXYZ PointT;
-typedef pcl::PointCloud<PointT> pointcloud;
-typedef pcl::PointCloud<pcl::Normal> pointnormal;
-typedef pcl::PointCloud<pcl::FPFHSignature33> fpfhFeature;
+// typedef pcl::PointXYZ PointT;
+// typedef pcl::PointCloud<PointT> pointcloud;
+// typedef pcl::PointCloud<pcl::Normal> pointnormal;
+// typedef pcl::PointCloud<pcl::FPFHSignature33> fpfhFeature;
 
-pointcloud::Ptr vectorToPointCloud(std::shared_ptr<std::vector<Eigen::Vector4f>> input_data) {
-    pointcloud::Ptr cloud(new pointcloud);
-    cloud->points.reserve(input_data->size());
+// pointcloud::Ptr vectorToPointCloud(std::shared_ptr<std::vector<Eigen::Vector4f>> input_data) {
+//     pointcloud::Ptr cloud(new pointcloud);
+//     cloud->points.reserve(input_data->size());
 
-    for (const auto& vec : *input_data) {
-        if (std::isnan(vec(3))) continue;
-        PointT p;
-        p.x = vec[0];
-        p.y = vec[1];
-        p.z = vec[2];
-        cloud->points.push_back(p);
-    }
+//     for (const auto& vec : *input_data) {
+//         if (std::isnan(vec(3))) continue;
+//         PointT p;
+//         p.x = vec[0];
+//         p.y = vec[1];
+//         p.z = vec[2];
+//         cloud->points.push_back(p);
+//     }
 
-    cloud->width = cloud->points.size();
-    std::cout << "DEBUG: Cloud size : " << cloud->points.size() << std::endl;
-    cloud->height = 1;
-    return cloud;
-}
+//     cloud->width = cloud->points.size();
+//     std::cout << "DEBUG: Cloud size : " << cloud->points.size() << std::endl;
+//     cloud->height = 1;
+//     return cloud;
+// }
 
-pointcloud::Ptr vectorToPointCloud(const cv::Mat& depth, Intrinsic depthIntrinsics) {
-    pointcloud::Ptr cloud(new pointcloud);
-    cloud->points.reserve(depth.rows * depth.cols);
-    int rows = depth.rows;
-    int cols = depth.cols;
-    float* depth_data = (float*)depth.data;
-    Eigen::Matrix3f k_inv = depthIntrinsics.k_inv;
+// pointcloud::Ptr vectorToPointCloud(const cv::Mat& depth, Intrinsic depthIntrinsics) {
+//     pointcloud::Ptr cloud(new pointcloud);
+//     cloud->points.reserve(depth.rows * depth.cols);
+//     int rows = depth.rows;
+//     int cols = depth.cols;
+//     float* depth_data = (float*)depth.data;
+//     Eigen::Matrix3f k_inv = depthIntrinsics.k_inv;
 
-    for (int y{0}; y < rows; ++y) {
-        for (int x{0}; x < cols; ++x) {
-            float depth_measure = depth_data[y * cols + x];
-            if (std::isnan(depth_measure)) continue;
-            Eigen::Vector3f point = k_inv * Eigen::Vector3f(x, y, 1.0f) * depth_measure;
-            PointT p;
-            p.x = point[0];
-            p.y = point[1];
-            p.z = point[2];
-            cloud->points.push_back(p);
-        }
-    }
+//     for (int y{0}; y < rows; ++y) {
+//         for (int x{0}; x < cols; ++x) {
+//             float depth_measure = depth_data[y * cols + x];
+//             if (std::isnan(depth_measure)) continue;
+//             Eigen::Vector3f point = k_inv * Eigen::Vector3f(x, y, 1.0f) * depth_measure;
+//             PointT p;
+//             p.x = point[0];
+//             p.y = point[1];
+//             p.z = point[2];
+//             cloud->points.push_back(p);
+//         }
+//     }
 
-    cloud->width = cloud->points.size();
-    std::cout << "DEBUG: Cloud size  " << cloud->points.size() << std::endl;
-    cloud->height = 1;
-    return cloud;
-}
+//     cloud->width = cloud->points.size();
+//     std::cout << "DEBUG: Cloud size  " << cloud->points.size() << std::endl;
+//     cloud->height = 1;
+//     return cloud;
+// }
 
-fpfhFeature::Ptr compute_fpfh_feature(pointcloud::Ptr input_cloud) {
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+// fpfhFeature::Ptr compute_fpfh_feature(pointcloud::Ptr input_cloud) {
+//     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
 
-    pointnormal::Ptr normals(new pointnormal);
-    pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> n;
-    n.setInputCloud(input_cloud);
-    n.setNumberOfThreads(8);
-    n.setSearchMethod(tree);
-    n.setKSearch(10);
-    n.compute(*normals);
+//     pointnormal::Ptr normals(new pointnormal);
+//     pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> n;
+//     n.setInputCloud(input_cloud);
+//     n.setNumberOfThreads(8);
+//     n.setSearchMethod(tree);
+//     n.setKSearch(10);
+//     n.compute(*normals);
 
-    fpfhFeature::Ptr fpfh(new fpfhFeature);
-    pcl::FPFHEstimationOMP<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fest;
-    fest.setNumberOfThreads(8);
-    fest.setInputCloud(input_cloud);
-    fest.setInputNormals(normals);
-    fest.setSearchMethod(tree);
-    fest.setKSearch(10);
-    fest.compute(*fpfh);
+//     fpfhFeature::Ptr fpfh(new fpfhFeature);
+//     pcl::FPFHEstimationOMP<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fest;
+//     fest.setNumberOfThreads(8);
+//     fest.setInputCloud(input_cloud);
+//     fest.setInputNormals(normals);
+//     fest.setSearchMethod(tree);
+//     fest.setKSearch(10);
+//     fest.compute(*fpfh);
 
-    return fpfh;
-}
+//     return fpfh;
+// }
 
-std::optional<Eigen::Matrix4f> ransac_registration(
-    pointcloud::Ptr source, pointcloud::Ptr target, fpfhFeature::Ptr source_fpfh,
-    fpfhFeature::Ptr target_fpfh) {
-    pcl::SampleConsensusPrerejective<PointT, PointT, pcl::FPFHSignature33> r_sac;
-    pointcloud::Ptr aligned(new pointcloud);
+// std::optional<Eigen::Matrix4f> ransac_registration(
+//     pointcloud::Ptr source, pointcloud::Ptr target, fpfhFeature::Ptr source_fpfh,
+//     fpfhFeature::Ptr target_fpfh) {
+//     pcl::SampleConsensusPrerejective<PointT, PointT, pcl::FPFHSignature33> r_sac;
+//     pointcloud::Ptr aligned(new pointcloud);
 
-    r_sac.setInputSource(source);
-    r_sac.setInputTarget(target);
-    r_sac.setSourceFeatures(source_fpfh);
-    r_sac.setTargetFeatures(target_fpfh);
-    r_sac.setCorrespondenceRandomness(5);
-    r_sac.setInlierFraction(0.5f);
-    r_sac.setNumberOfSamples(3);
-    r_sac.setSimilarityThreshold(0.9f);
-    r_sac.setMaxCorrespondenceDistance(0.1f);
-    r_sac.setMaximumIterations(1000);
+//     r_sac.setInputSource(source);
+//     r_sac.setInputTarget(target);
+//     r_sac.setSourceFeatures(source_fpfh);
+//     r_sac.setTargetFeatures(target_fpfh);
+//     r_sac.setCorrespondenceRandomness(3);
+//     r_sac.setInlierFraction(0.2f);
+//     r_sac.setNumberOfSamples(10);
+//     r_sac.setSimilarityThreshold(0.7f);
+//     r_sac.setMaxCorrespondenceDistance(0.24f);
+//     r_sac.setMaximumIterations(4000);
 
-    pcl::console::TicToc time;
-    time.tic();
+//     pcl::console::TicToc time;
+//     time.tic();
 
-    r_sac.align(*aligned);
-    if (!r_sac.hasConverged())
-        return std::nullopt;
-    else
-        return r_sac.getFinalTransformation();
-}
+//     r_sac.align(*aligned);
+//     if (!r_sac.hasConverged())
+//         return std::nullopt;
+//     else
+//         return r_sac.getFinalTransformation();
+// }
 
 Tracker::Tracker(
     std::shared_ptr<Settings> settins, int nPyramidLevel, int maxNIteration, int minNIteration,
@@ -160,6 +160,7 @@ void Tracker::track(std::shared_ptr<View> view, std::shared_ptr<TrackingState> t
 
     Eigen::Matrix<float, 6, 6> hessian_good = Eigen::Matrix<float, 6, 6>::Zero();
     Eigen::Vector<float, 6> nabla_good = Eigen::Vector<float, 6>::Zero();
+    float f_good;
     int nVaildPoints_good{0};
 
     bool coarseRgistration{false};
@@ -171,22 +172,23 @@ void Tracker::track(std::shared_ptr<View> view, std::shared_ptr<TrackingState> t
         float old_f = std::numeric_limits<float>::infinity();
         float lamdba{1.0f};
 
-        if (!coarseRgistration) {
-            coarseRgistration = true;
-            pointcloud::Ptr source = vectorToPointCloud(pointcloudPyramid_[level]);
-            pointcloud::Ptr target =
-                vectorToPointCloud(depthPyramid_[level], depthIntrinsicsPyramid_[level]);
-            if (target->empty() || source->empty()) throw std::runtime_error("pointcloud isempty");
-            fpfhFeature::Ptr source_fpfh = compute_fpfh_feature(source);
-            fpfhFeature::Ptr target_fpfh = compute_fpfh_feature(target);
-            auto pose = ransac_registration(source, target, source_fpfh, target_fpfh);
-            if (pose.has_value())
-                approxPose = pose.value();
-            else
-                std::cout << "Solve Failed" << std::endl;
-            if (pose.has_value()) std::cout << pose.value() << std::endl;
-            coarseRgistration = true;
-        }
+        // if (!coarseRgistration) {
+        //     coarseRgistration = true;
+        //     pointcloud::Ptr source = vectorToPointCloud(pointcloudPyramid_[level]);
+        //     pointcloud::Ptr target =
+        //         vectorToPointCloud(depthPyramid_[level], depthIntrinsicsPyramid_[level]);
+        //     if (target->empty() || source->empty()) throw std::runtime_error("pointcloud
+        //     isempty"); fpfhFeature::Ptr source_fpfh = compute_fpfh_feature(source);
+        //     fpfhFeature::Ptr target_fpfh = compute_fpfh_feature(target);
+        //     auto pose = ransac_registration(source, target, source_fpfh, target_fpfh);
+        //     if (pose.has_value()) {
+        //         approxPose = pose.value().inverse();
+        //         std::cout << "Succefully" << std::endl;
+        //         if (pose.has_value()) std::cout << pose.value().inverse() << std::endl;
+        //     } else
+        //         std::cout << "Solve Failed" << std::endl;
+        //     coarseRgistration = true;
+        // }
 
         for (int i = 0; i < nIterationPyramid_[level]; ++i) {
             float local_f = {0.0f};
@@ -217,6 +219,7 @@ void Tracker::track(std::shared_ptr<View> view, std::shared_ptr<TrackingState> t
                 nabla_good = local_nabla;
                 nVaildPoints_good = local_nVaildPoints;
                 lamdba /= settings_->lamdbaScale;
+                f_good = local_f;
             }
 
             local_hessian = hessian_good + Eigen::Matrix<float, 6, 6>::Identity() * lamdba;
@@ -325,10 +328,12 @@ void Tracker::computeHessianAndGradient(
             if (point_in_last_view(2) < 1e-3) continue;
 
             point_in_last_view /= point_in_last_view(2);
+            int coord_x = std::floor(point_in_last_view.head(2)(0));
+            int coord_y = std::floor(point_in_last_view.head(2)(1));
 
-            if (point_in_last_view(0) < 1 || point_in_last_view(0) > cols - 1 ||
-                point_in_last_view(1) < 1 || point_in_last_view(1) > rows - 1)
+            if (coord_x <= 0 || coord_x >= cols - 1 || coord_y <= 0 || coord_y >= rows - 1)
                 continue;
+
             Eigen::Vector4f point =
                 interpolateBilinear_withHoles(pointsMap, point_in_last_view.head(2), cols);
             if (std::isnan(point(3))) continue;
@@ -346,7 +351,7 @@ void Tracker::computeHessianAndGradient(
             local_f = rho(b, spaceThreshold) * pow(depthWeight, 2);
             f += local_f;
 
-            hessian += rho_deriv2(b, spaceThreshold) * A.transpose() * A * pow(depthWeight, 2);
+            hessian += A.transpose() * A * pow(depthWeight, 2);
             nabla +=
                 -A.transpose() * depthWeight * rho_deriv(b, spaceThreshold) * pow(depthWeight, 2);
             nVaildPoints++;
@@ -367,6 +372,14 @@ void Tracker::applyDelta(Eigen::Matrix4f& pose, Eigen::Matrix<float, 1, 6> delta
     Eigen::Matrix3f dR = (Eigen::AngleAxisf(dw.norm(), dw.normalized())).toRotationMatrix();
     pose.block(0, 0, 3, 3) = dR * pose.block(0, 0, 3, 3);
     pose.block(0, 3, 3, 1) = dR * pose.block(0, 3, 3, 1) + dv;
+    std::cout << pose << std::endl;
 }
-void Tracker::updateQualityOfTracking() {}
+void Tracker::updateQualityOfTracking(std::shared_ptr<TrackingState> trackingState, float f) {
+    if (f > 1500.0f)
+        trackingState->set_tracking_result(TrackingState::TrackingResult::TRACKING_FAILED);
+    else if (f > 1200.0f)
+        trackingState->set_tracking_result(TrackingState::TrackingResult::TRACKING_POOR);
+    else
+        trackingState->set_tracking_result(TrackingState::TrackingResult::TRACKING_GOOD);
+}
 }  // namespace surface_reconstruction

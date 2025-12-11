@@ -54,7 +54,7 @@ inline Voxel readVoxel(std::shared_ptr<Scene> scene, Eigen::Vector3i point) {
     Eigen::Vector3i blockPos;
     int linearId = pointToVoxelBlockPos(point, blockPos, scene->get_settings().sdf_block_size);
 
-    int hashId = Scene::getHashIndex(blockPos);
+    int hashId = scene->getHashIndex(blockPos);
 
     HashEntry hashEntry;
 

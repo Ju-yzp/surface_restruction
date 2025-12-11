@@ -151,26 +151,26 @@ private:
 };
 
 int main() {
-    // Camera camera;
+    Camera camera;
 
-    // camera.start();
+    camera.start();
 
-    // while(true){
-    //     std::this_thread::sleep_for((std::chrono::milliseconds(10)));
-    // }
-
-    cv::Mat img = cv::imread("Frame3.png", cv::IMREAD_UNCHANGED);
-    if (!img.empty()) {
-        cv::namedWindow("realtime", cv::WINDOW_AUTOSIZE);
-        cv::Mat depth = cv::Mat(img.rows, img.cols, CV_32F);
-        for (int i{0}; i < img.rows; ++i) {
-            for (int j{0}; j < img.rows; ++j) {
-                depth.at<float>(i, j) = (int)img.at<unsigned short>(i, j) / 30.0;
-            }
-        }
-
-        cv::imshow("realtime", depth);
-        cv::waitKey();
-        cv::destroyWindow("realtime");
+    while (true) {
+        std::this_thread::sleep_for((std::chrono::milliseconds(10)));
     }
+
+    // cv::Mat img = cv::imread("Frame3.png", cv::IMREAD_UNCHANGED);
+    // if (!img.empty()) {
+    //     cv::namedWindow("realtime", cv::WINDOW_AUTOSIZE);
+    //     cv::Mat depth = cv::Mat(img.rows, img.cols, CV_32F);
+    //     for (int i{0}; i < img.rows; ++i) {
+    //         for (int j{0}; j < img.rows; ++j) {
+    //             depth.at<float>(i, j) = (int)img.at<unsigned short>(i, j) / 30.0;
+    //         }
+    //     }
+
+    //     cv::imshow("realtime", depth);
+    //     cv::waitKey();
+    //     cv::destroyWindow("realtime");
+    // }
 }

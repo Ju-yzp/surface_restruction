@@ -93,16 +93,16 @@ inline void filterSubsampleWithHoles(
 }
 
 // 将无符号16位的原始深度图转换为以m为单位的float图像
-// inline void convertShortToFloat(cv::Mat* input, cv::Mat* output, float scale) {
-//     output->create(input->rows, input->cols, CV_32F);
+inline void convertShortToFloat(cv::Mat* input, cv::Mat* output, float scale) {
+    output->create(input->rows, input->cols, CV_32F);
 
-//     for (int y{0}; y < output->rows; ++y) {
-//         for (int x{0}; x < output->cols; ++x) {
-//             int32_t pixel_in = input->at<uint16_t>(y, x);
-//             if (pixel_in > 0) output->at<float>(y, x) = (float)pixel_in / scale;
-//         }
-//     }
-// }
+    for (int y{0}; y < output->rows; ++y) {
+        for (int x{0}; x < output->cols; ++x) {
+            int32_t pixel_in = input->at<uint16_t>(y, x);
+            if (pixel_in > 0) output->at<float>(y, x) = (float)pixel_in / scale;
+        }
+    }
+}
 
 // 深度图、法向量图、点云图插值
 inline Eigen::Vector4f interpolateBilinear_withHoles(

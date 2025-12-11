@@ -3,6 +3,7 @@
 #include <utils.h>
 
 namespace surface_reconstruction {
+
 void allocateVoxelFormDepth(
     std::shared_ptr<Scene> scene, std::shared_ptr<View> view,
     std::shared_ptr<TrackingState> trackingState, bool updateVisibleList) {
@@ -15,14 +16,12 @@ void allocateVoxelFormDepth(
     Settings settings = scene->get_settings();
     const float mu = settings.mu;
     const float oneOverVoxelSize = 1.0f / (settings.voxelSize * settings.sdf_block_size);
+    std::cout << oneOverVoxelSize << std::endl;
 
-    int nstep, norm;
-
-    Eigen::Vector3f point_in_camera, direction;
     Eigen::Matrix3f inv_depth = view->calibrationParams.depth.k_inv;
     Eigen::Matrix4f pose_inv = trackingState->get_current_camera_in_localmap().inverse();
 
-    float depth_measure;
+    std::cout << pose_inv << std::endl;
 
     float* depth = (float*)view->depth.data;
 
@@ -32,19 +31,25 @@ void allocateVoxelFormDepth(
     for (int y = 0; y < rows; ++y) {
         int offset = y * cols;
         for (int x = 0; x < cols; ++x) {
+            float depth_measure;
             depth_measure = depth[offset + x];
-            if (depth_measure < 1e-4 || (depth_measure - mu) < viewFrustum_min ||
+            if (std::isnan(depth_measure) || (depth_measure - mu) < viewFrustum_min ||
                 (depth_measure + mu) > viewFrustum_max)
                 continue;
-
+            int nstep;
+            float norm;
+            Eigen::Vector3f point_in_camera, direction;
             // 获取在depth相机下的点云数据
             point_in_camera(2) = 1.0f;
             point_in_camera(0) = x;
             point_in_camera(1) = y;
             point_in_camera = inv_depth * point_in_camera * depth_measure;
-
             norm = point_in_camera.norm();
+            const float NORM_EPSILON = 1e-6f;
 
+            if (norm < NORM_EPSILON) {
+                continue;
+            }
             // 获取从该点云延伸的截断线段的起始点和终点
             Eigen::Vector3f point_s =
                 (pose_inv *
@@ -56,8 +61,8 @@ void allocateVoxelFormDepth(
                  (Eigen::Vector4f() << point_in_camera * (1.0f + mu / norm), 1.0f).finished())
                     .head(3) *
                 oneOverVoxelSize;
-
             direction = point_e - point_s;
+
             nstep = (int)ceil(2.0f * direction.norm());
             direction /= (float)(nstep - 1);
 
@@ -66,7 +71,7 @@ void allocateVoxelFormDepth(
                     (int)std::floor(point_s(0)), (int)std::floor(point_s(1)),
                     (int)std::floor(point_s(2)));
 
-                int hashId = Scene::getHashIndex(blockPos);
+                int hashId = scene->getHashIndex(blockPos);
 
                 bool isFound{false};
 
@@ -80,6 +85,7 @@ void allocateVoxelFormDepth(
                     hashEntry.isUsed = true;
                     scene->set_entry(hashEntry, hashId);
                     currentFrameVisibleVoxelBlockList.emplace(hashId);
+                    scene->allocateVoxelBlock();
                     isFound = true;
                 } else {  // 在冲突列表上进行分配
                     int currentEntryId = hashId;
@@ -100,6 +106,7 @@ void allocateVoxelFormDepth(
                         childHashEntry.value()->isUsed = true;
                         scene->set_entryOffset(currentEntryId, childHashEntry.value()->ptr);
                         currentFrameVisibleVoxelBlockList.emplace(childHashEntry.value()->ptr);
+                        scene->hasFreeScene();
                     }
                 }
 
@@ -117,7 +124,8 @@ void intergrateIntoScene(
     const std::set<int>& currentFrameVisibleVoxelBlockIdList =
         scene->get_constCurrentFrameVisibleVoxelBlockList();
 
-    Eigen::Matrix3f k = view->calibrationParams.rgb.k;
+    std::cout << currentFrameVisibleVoxelBlockIdList.size() << std::endl;
+    Eigen::Matrix3f k = view->calibrationParams.depth.k;
 
     int rows = view->depth.rows;
     int cols = view->depth.cols;
@@ -171,7 +179,7 @@ void intergrateIntoScene(
 
                     depth_measure =
                         depth[((int)(pointImage(0) + 0.5) + (int)(pointImage(1) + 0.5) * cols)];
-                    if (depth_measure < 1e-6) continue;
+                    if (std::isnan(depth_measure)) continue;
                     eta = depth_measure - point_in_camera(2);
 
                     // 不在截断区域内,跳过不更新
@@ -309,4 +317,42 @@ void generatePointCloudsAndNormals(
     }
 }
 
+void processFrame(
+    std::shared_ptr<Scene> scene, std::shared_ptr<View> view,
+    std::shared_ptr<TrackingState> trackingState) {
+    allocateVoxelFormDepth(scene, view, trackingState);
+
+    /* TODO:在查看上一帧的体素能在当前相机视锥体内被观察到部分的话，就把索引添加至当前可视帧体素块索引列表中
+            我们或许该引进删除重复的元素，避免后续重复操作，同时如果跟踪的比较好，就说明笛卡尔系运动速度较慢，
+            同时在李代姿态下变化也比较小
+    */
+    std::set<int>& lastFrametVisibleVoxelBlockList = scene->get_lastFrameVisibleVoxelBlockList();
+    std::set<int>& currentFrameVisibleVoxelBlockIdList =
+        scene->get_currentFrameVisibleVoxelBlockList();
+
+    std::set<int> result;
+
+    std::set_difference(
+        lastFrametVisibleVoxelBlockList.begin(), lastFrametVisibleVoxelBlockList.end(),
+        currentFrameVisibleVoxelBlockIdList.begin(), currentFrameVisibleVoxelBlockIdList.end(),
+        std::inserter(result, result.begin()));
+
+    Eigen::Matrix3f project_m = view->calibrationParams.depth.k;
+    Eigen::Matrix4f pose_m = trackingState->get_current_camera_in_localmap();
+    Eigen::Vector2i imageSize(view->depth.cols, view->depth.rows);
+    float voxelSize = scene->get_settings().voxelSize;
+    int sdf_block_size = scene->get_settings().sdf_block_size;
+
+    cv::Size2i depthSize(view->depth.rows, view->depth.cols);
+
+    for (auto entryId : result) {
+        HashEntry hashEntry = scene->get_entry(entryId);
+        Eigen::Vector4f p;
+        p << hashEntry.pos(0), hashEntry.pos(1), hashEntry.pos(2), 1.0f;
+        if (checkVoxelBlockvisibility(p, project_m, pose_m, imageSize, voxelSize, sdf_block_size))
+            currentFrameVisibleVoxelBlockIdList.emplace(entryId);
+    }
+
+    intergrateIntoScene(scene, view, trackingState);
+}
 }  // namespace surface_reconstruction

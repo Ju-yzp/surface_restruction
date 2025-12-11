@@ -17,22 +17,22 @@
 
 int main() {
     using namespace surface_reconstruction;
-    cv::Mat orginDepth = cv::imread(
-        "/home/adrewn/surface_reconstruction/data/1305031102.160407.png", cv::IMREAD_UNCHANGED);
+    cv::Mat orginDepth =
+        cv::imread("/home/adrewn/surface_reconstruction/data/depth3.png", cv::IMREAD_UNCHANGED);
 
     int rows = orginDepth.rows;
     int cols = orginDepth.cols;
 
-    Eigen::Quaternionf q1(-0.3266, 0.6583, 0.6112, -0.2938), q2(-0.3045, 0.6623, 0.6202, -0.2898);
+    Eigen::Quaternionf q1(1, 0, 0, 0.0), q2(1.0, 0.0, 0.0, 0.0);
 
     Eigen::Matrix4f t1 = Eigen::Matrix4f::Identity(), t2 = Eigen::Matrix4f::Identity();
-    t1.col(3) << 1.3434, 0.6271, 1.6606, 1.0;
-    t2.col(3) << 1.3041, 0.6256, 1.6170, 1.0;
+    t1.col(3) << 0.0f, 0.0f, 0.0f, 1.0f;
+    t2.col(3) << 0.0f, 0.0f, 0.0, 1.0f;
     t1.block(0, 0, 3, 3) = q1.matrix();
     t2.block(0, 0, 3, 3) = q2.matrix();
 
     RGBDCalibrationParams calibrationParams;
-    calibrationParams.scale = 5000.0f;
+    calibrationParams.scale = 1000.0f;
 
     std::shared_ptr<View> view = std::make_shared<View>();
     view->calibrationParams = calibrationParams;
@@ -46,7 +46,7 @@ int main() {
 
     auto pointsMap = trackingState->get_pointclouds();
 
-    Intrinsic depthIntrinsics(Eigen::Vector4f{525.f, 525.f, 310.5f, 239.5f});
+    Intrinsic depthIntrinsics(Eigen::Vector4f{504.867, 504.958, 333.731, 339.597});
 
     view->calibrationParams.depth = depthIntrinsics;
     view->calibrationParams.viewFrustum_max = 2.f;
@@ -74,8 +74,8 @@ int main() {
         settings, settings->nPyramidLevel, settings->maxNLMIteration, settings->minNLMIteration,
         settings->maxSpaceThreshold, settings->minSpaceThreshold);
 
-    orginDepth = cv::imread(
-        "/home/adrewn/surface_reconstruction/data/1305031102.329195.png", cv::IMREAD_UNCHANGED);
+    orginDepth =
+        cv::imread("/home/adrewn/surface_reconstruction/data/depth4.png", cv::IMREAD_UNCHANGED);
     view->processDepth(orginDepth);
     tracker.track(view, trackingState);
 

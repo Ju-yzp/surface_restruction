@@ -4,6 +4,9 @@ project(surface_retruction VERSION 1.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_LINKER
+    "ld.gold"
+    CACHE STRING "Linker" FORCE)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE
@@ -16,9 +19,7 @@ cmake_policy(SET CMP0072 NEW)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(g2o REQUIRED)
-find_package(Sophus REQUIRED)
 find_package(OpenMP REQUIRED)
-find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(PCL REQUIRED)
@@ -45,10 +46,34 @@ file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.cxx")
 # ${G2O_LIBRARIES} Sophus::Sophus # rclcpp::rclcpp #
 # ${visualization_msgs_LIBRARIES} VisualisationEngine)
 
-add_executable(test_tracker test/test_tracker.cpp src/tracker.cpp)
-target_include_directories(
-  test_tracker PUBLIC include ${Eigen3_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS}
-                      ${G2O_INCLUDE_DIRS} ${visualization_msgs_INCLUDE_DIRS})
+# add_executable(test_tracker test/test_tracker.cpp src/tracker.cpp)
+# target_include_directories(test_tracker PUBLIC include ${Eigen3_INCLUDE_DIRS}
+# ${OpenCV_INCLUDE_DIRS})
 
-target_link_libraries(test_tracker PUBLIC ${OpenCV_LIBS} ${G2O_LIBRARIES}
-                                          ${PCL_LIBRARIES} Sophus::Sophus)
+# target_link_libraries(test_tracker PUBLIC ${OpenCV_LIBS} )
+
+add_executable(test_matcher test/matcher_test.cpp src/visualisation_engine.cpp
+                            src/tracker.cpp src/coarseMatcher.cpp)
+target_include_directories(
+  test_matcher
+  PUBLIC include ${OpenCV_INCLUDE_DIRS}
+         # ${visualization_msgs_INCLUDE_DIRS}
+         ${Eigen3_INCLUDE_DIRS})
+
+target_link_libraries(
+  test_matcher PUBLIC ${OpenCV_LIBS} Eigen3::Eigen ${PCL_LIBRARIES}
+  # rclcpp::rclcpp ${visualization_msgs_LIBRARIES}
+)
+
+# add_executable(test_visual test/test_visual.cpp src/visualisation_engine.cpp
+# src/tracker.cpp )
+
+# target_include_directories( test_visual PUBLIC include
+# #${visualization_msgs_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
+
+# target_link_libraries( test_visual PUBLIC #rclcpp::rclcpp ${OpenCV_LIBS}
+# #${PCL_LIBRARIES} Eigen3::Eigen #${visualization_msgs_LIBRARIES} )
+
+# add_executable(camera test/collect_data.cpp) target_include_directories(camera
+# PUBLIC ${OpenCV_INCLUDE_DIRS}) target_link_libraries(camera PUBLIC
+# OrbbecSDK::OrbbecSDK ${OpenCV_LIBS})
